@@ -1,4 +1,4 @@
-# CarryProtocol_Review
+# CarryToken_Review
 
 This smart contract audit was prepared by [Quantstamp](https://www.quantstamp.com/), the protocol for securing smart contracts.
 
@@ -8,7 +8,7 @@ This security audit report follows a generic template. Future Quantstamp reports
 
 Our understanding of the specification was based on the following documentation:
 
-* [Carry Protocol README](https://github.com/carryprotocol/carry-token-crowdsale/blob/25b53a973864b6ef30d70caa14bd490935a16b55/README.md)
+* [Carry Token Crowdsale README](https://github.com/carryprotocol/carry-token-crowdsale/blob/25b53a973864b6ef30d70caa14bd490935a16b55/README.md)
 
 * Comments included in Solidity files.
 
