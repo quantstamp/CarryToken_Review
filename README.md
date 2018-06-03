@@ -10,6 +10,8 @@ Our understanding of the specification was based on the following documentation:
 
 * [Carry Protocol README](https://github.com/carryprotocol/carry-token-crowdsale/blob/25b53a973864b6ef30d70caa14bd490935a16b55/README.md)
 
+* Comments included in Solidity files.
+
 ## Methodology
 
 The review was conducted during 2018-May-29 through 2018-June-04 by the Quantstamp team, which included senior engineers Alex Murashkin and Leonardo Passos with reviewers Kacper Bak and Steven Stewart. 
