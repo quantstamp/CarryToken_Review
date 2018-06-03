@@ -69,12 +69,37 @@ Testing setup:
 Steps taken to run the full test suite:
 
 * Installed dependencies via `npm install`.
+* Installed the `solidity-coverage` tool: `npm install solidity-coverage@0.5.4`.
+* Ran the coverage tool: `./node_modules/.bin/solidity-coverage`.
+* To workaround limitations of the `Mythril` and `Oyente` tools, we flattened the source code using `truffle-flattener`.
+* Installed the `mythril` tool from Pypi: `pip3 install mythril`.
+* Ran the `mythril` tool: `myth -x <Contract>.sol`.
+* Ran the `Oyente` tool: `cd /oyente/oyente` followed by `python oyente.py -s contracts/<Contract>.sol`.
+* Installed the `Oyente` tool from Docker Hub: `docker pull luongnguyen/oyente && docker run -i -t -v ${PWD}:/oyente/oyente/contracts luongnguyen/oyente`.
+* Ran the `Oyente` tool: `cd /oyente/oyente && python oyente.py -s contracts/<Contract>.sol`.
 
 # Evaluation
 
 ## Code Coverage
 
+Code coverage within the repository is satisfactory: `CarryToken.sol`, `CarryTokenCrowdsale.sol`, and `CarryTokenPresale.sol` have the perfect coverage, yet `GradualDeliveryCrowdsale.sol` has untested parts:
 
+* Lines 79, 89, 90, 98, and 125: the `else` paths of `require()` statements.
+* Lines 92 and 93: the `if` path of the `if (to > beneficiaries.length)` statement.
+
+```
+-------------------------------|----------|----------|----------|----------|----------------|
+File                           |  % Stmts | % Branch |  % Funcs |  % Lines |Uncovered Lines |
+-------------------------------|----------|----------|----------|----------|----------------|
+ contracts/                         97.73 |    76.92 |      100 |    97.96 |                
+  CarryToken.sol                      100 |      100 |      100 |      100 |                
+  CarryTokenCrowdsale.sol             100 |      100 |      100 |      100 |                
+  CarryTokenPresale.sol               100 |      100 |      100 |      100 |                
+  GradualDeliveryCrowdsale.sol |    97.14 |    72.73 |      100 |     97.3 |             93 |
+-------------------------------|----------|----------|----------|----------|----------------|
+All files                           97.73 |    76.92 |      100 |    97.96 |                
+-------------------------------|----------|----------|----------|----------|----------------|
+```
 
 ## Usage of External Libraries 
 
@@ -84,8 +109,17 @@ The contract makes extensive usage of external libraries (created by OpenZeppeli
 
 While minimal specification is proposed within the [README](https://github.com/carryprotocol/carry-token-crowdsale/blob/25b53a973864b6ef30d70caa14bd490935a16b55/README.md), multiple checks and constants are presented through the Truffle project to ensure intended actions are successfully performed. 
 
-## Toolset Warnings 
+## Toolset Warnings
 
+Oyente tool has not detected any vulnerabilities of kinds Parity Multisig Bug 2, Callstack Depth Attack, Timestamp Dependency, and Re-Entrancy.
+
+Mythril tool has not detected any vulnerabilities of kinds Integer underflow, Unprotected functions, Missing check on `call` return value, Re-entrancy, Multiple sends in a single transaction, External call to untrusted contract, `delegatecall` or `callcode` to untrusted contract, Timestamp dependence, Use of `tx.origin`, Predictable RNG, Transaction order dependence, Use `require()` instead of `assert()`, Use of deprecated functions, Detect tautologies.
+
+Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`, however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
+
+Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. TODO: interpret this warning.
+
+Oyente has shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`, however, we believe this is a bug of Oyente: the line does not contain any integer operations.
 
 # Recommendations
 
@@ -115,7 +149,66 @@ $ shasum -a 256 ./test/*
 ca88c4b385e302933c495b4280fd401f13382f6b07c266c60cd7aa2d8bcf075b  ./test/utils.js
 ```
 
-## Truffle Test Results 
+## Truffle Test Results
+
+```
+  Contract: CarryToken
+    ✓ cannot be minted more than TOTAL_CAP (49ms)
+    ✓ should transfer token correctly (112ms)
+    ✓ should fail to transfer if sender has not enough balance (68ms)
+
+  Contract: CarryTokenCrowdsale
+    ✓ should not receive ETH from address not whitelisted (378ms)
+    ✓ should not receive less than individualMinPurchaseWei (399ms)
+    ✓ should not receive more than individualMaxCapWei per contributor (454ms)
+    ✓ should not receive more than total individualMaxCapWei per contributor (499ms)
+    ✓ should receive if all conditions are satisfied (110ms)
+
+  Contract: CarryTokenPresale
+    ✓ should not receive ETH from address not whitelisted (395ms)
+    ✓ should not receive less than individualMinPurchaseWei (464ms)
+    ✓ should not receive more than individualMaxCapWei per contributor (435ms)
+    ✓ should not receive more than total individualMaxCapWei per contributor (458ms)
+    ✓ should receive if all conditions are satisfied (62ms)
+
+  Contract: SampleGradualDeliveryCrowdsale
+    ✓ should not withdraw tokens immediately after purchase (50ms)
+    ✓ disallows withdrawal by other than the owner
+    ✓ delivers tokens in the specified ratio (304ms)
+    ✓ can deliver tokens from & to a particular offset (450ms)
+    ✓ disallows to be requested to refund by other than the fund owner or the fund wallet (177ms)
+    ✓ allows the fund owner to request to refund a purchase (195ms)
+    ✓ disallows to refund more than purchased (143ms)
+    ✓ allows the fund wallet to request to refund a purchase (195ms)
+    ✓ disallows to refund more than purchased (147ms)
+    ✓ disallows to receive the refund if there is no refunded deposit (120ms)
+    ✓ disallows to receive the refund by other than the fund owner or the beneficiary (156ms)
+    ✓ allows the fund owner to receive the refunded deposit (411ms)
+    ✓ allows the beneficiary to receive the refunded deposit (374ms)
+    ✓ allows the beneficiary to receive the refunded deposit to his another account (address) (363ms)
+    ✓ accumulate the deposit if refunded multiple times (226ms)
+    ✓ disallows any other than the beneficiary to receive the refunded deposit to a specified address (274ms)
+
+  Contract: CarryTokenPresale
+    ✓ should not withdraw tokens immediately after purchase (130ms)
+    ✓ disallows withdrawal by other than the owner
+    ✓ delivers tokens in the specified ratio (270ms)
+    ✓ can deliver tokens from & to a particular offset (441ms)
+    ✓ disallows to be requested to refund by other than the fund owner or the fund wallet (214ms)
+    ✓ allows the fund owner to request to refund a purchase (191ms)
+    ✓ disallows to refund more than purchased (169ms)
+    ✓ allows the fund wallet to request to refund a purchase (211ms)
+    ✓ disallows to refund more than purchased (178ms)
+    ✓ disallows to receive the refund if there is no refunded deposit (149ms)
+    ✓ disallows to receive the refund by other than the fund owner or the beneficiary (176ms)
+    ✓ allows the fund owner to receive the refunded deposit (469ms)
+    ✓ allows the beneficiary to receive the refunded deposit (404ms)
+    ✓ allows the beneficiary to receive the refunded deposit to his another account (address) (384ms)
+    ✓ accumulate the deposit if refunded multiple times (212ms)
+    ✓ disallows any other than the beneficiary to receive the refunded deposit to a specified address (262ms)
+
+  45 passing (13s)
+```
 
 # Disclosure
 
