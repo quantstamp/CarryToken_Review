@@ -119,6 +119,7 @@ The exploit (as described below) can be mitigated through implementing functions
 4. If Bob's transaction will be executed before Alice's transaction, then Bob will successfully transfer `N` Alice's tokens and will gain an ability to transfer another `M` tokens
 5. Before Alice notices any irregularities, Bob calls `transferFrom` method again, this time to transfer `M` Alice's tokens.
 
+Pending community agreement on an ERC standard that would protect against this exploit, we recommend that developers of applications dependent on `approve` / `transferFrom` should keep in mind that they have to set allowance to 0 first and verify if it was used before setting the new value. Teams who decide to wait for such a standard should make these recommendations to app developers who work with their token contract. (edited)
 
 ## Adherence to Specification 
 
@@ -130,12 +131,12 @@ Oyente tool has not detected any vulnerabilities of kinds Parity Multisig Bug 2,
 
 Mythril tool has not detected any vulnerabilities of kinds Integer underflow, Unprotected functions, Missing check on `call` return value, Re-entrancy, Multiple sends in a single transaction, External call to untrusted contract, `delegatecall` or `callcode` to untrusted contract, Timestamp dependence, Use of `tx.origin`, Predictable RNG, Transaction order dependence, Use `require()` instead of `assert()`, Use of deprecated functions, Detect tautologies.
 
-Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`, however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
+Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add` (line 44, `SafeMath.sol`), however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
 
-Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. This proved not to be the case, as both flows reported by the tool are the same. This warning
+Oyente has shown a warning of a possible transaction-ordering dependency (line 170, `GradualDeliveryCrowdsale.sol`): `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method. This proved not to be the case, as both flows reported by the tool are the same. This warning
 can be safely ignored.
 
-Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`; however, we believe this is a bug of Oyente: the line does not contain any integer operations.
+Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"` (line 23, `CarryToken.sol`); however, we believe this is a bug of Oyente: the line does not contain any integer operations.
 
 # Recommendations
 
@@ -199,14 +200,7 @@ Adding the if statement as shown guards against the cases when a `_beneficiary` 
 
 * Fix grammar issues. Some examples: `they has` -> `they have`, `ethers` -> `ether`
 
-* The `constructor` keyword should have been used instead of naming it after the
-contract. In fact, after doing so, running
-
-```
-npm run lint
-```
-
-does not report any issues. Thus, we advice making such a change.
+* The current design of token distribution (the file `GradualDeliveryCrowdsale.sol`) follows the "push" approach which is prone to failures and can be costly in terms of gas for the contract owner. As per the best practices, we recommend [favouring "pull" over "push" for external calls](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
 
 # Conclusion
 
