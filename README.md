@@ -199,7 +199,7 @@ Adding the if statement as shown guards against the cases when a `_beneficiary` 
 
 * Fix grammar issues. Some examples: `they has` -> `they have`, `ethers` -> `ether`
 
-* The current design of token distribution (the file `GradualDeliveryCrowdsale.sol`) follows the "push" approach which is prone to failures and can be costly in terms of gas for the contract owner. As per the best practices, we recommend [favouring "pull" over "push" for external calls](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
+* The current design of token distribution (the file `GradualDeliveryCrowdsale.sol`, the method `_deliverTokensInRatio(...)`) follows the "push" approach which is prone to failures and can be costly in terms of gas for the contract owner. As per the best practices, we recommend [favouring "pull" over "push" for external calls](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
 
 # Conclusion
 
