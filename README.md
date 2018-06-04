@@ -118,6 +118,7 @@ The exploit (as described below) can be mitigated through implementing functions
 4. If Bob's transaction will be executed before Alice's transaction, then Bob will successfully transfer `N` Alice's tokens and will gain an ability to transfer another `M` tokens
 5. Before Alice notices any irregularities, Bob calls `transferFrom` method again, this time to transfer `M` Alice's tokens.
 
+Pending community agreement on an ERC standard that would protect against this exploit, we recommend that developers of applications dependent on `approve` / `transferFrom` should keep in mind that they have to set allowance to 0 first and verify if it was used before setting the new value. Teams who decide to wait for such a standard should make these recommendations to app developers who work with their token contract.
 
 ## Adherence to Specification 
 
@@ -129,12 +130,12 @@ Oyente tool has not detected any vulnerabilities of kinds Parity Multisig Bug 2,
 
 Mythril tool has not detected any vulnerabilities of kinds Integer underflow, Unprotected functions, Missing check on `call` return value, Re-entrancy, Multiple sends in a single transaction, External call to untrusted contract, `delegatecall` or `callcode` to untrusted contract, Timestamp dependence, Use of `tx.origin`, Predictable RNG, Transaction order dependence, Use `require()` instead of `assert()`, Use of deprecated functions, Detect tautologies.
 
-Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`; however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
+Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add` (line 44, `SafeMath.sol`); however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
 
-Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. This proved to be a false-positive, as both flows reported by the tool are the same. This warning
+Oyente has shown a warning of a possible transaction-ordering dependency at line 170, `GradualDeliveryCrowdsale.sol`: the call `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method. This proved to be a false-positive, as both flows reported by the tool are the same. This warning
 can be safely ignored.
 
-Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`; however, we believe this is a bug of Oyente: the line does not contain any integer operations.
+Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"` (line 23, `CarryToken.sol`); however, we believe this is a bug of Oyente: the line does not contain any integer operations.
 
 # Recommendations
 
@@ -153,7 +154,7 @@ Oyente has also shown a warning of a possible integer underflow at the line `str
       }
   ```
   Executing `beneficiaries.push(_beneficiary);` may lead to cases where
-  `beneficiaries` are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
+  beneficiaries are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
 
   To illustrate how this could happen, consider the following execution flow:
 
@@ -194,19 +195,11 @@ Adding the if statement as shown guards against the cases when a `_beneficiary` 
   * `receiverRefund` -> `receiveRefund` (line 148, `GradualDeliveryCrowdsale.sol`)
   * `deliverTokenRatio` -> `deliverTokensInRatio` (line 27, `GradualDeliveryCrowdsale.sol`)
 
-* Variable names `_from` and `_to` have been overloaded. Typically they mean a source and a destination when transferring ether. Such names, however, have been used to express ranges over an array (e.g., `GradualDeliveryCrowdsale.sol`, lines 76 and 77). Our recommendation is to rename them to `_startIndex` and `_endIndex`, respectively. Moreover, document that `_endIndex` is exclusive.
+* Variable names `_from` and `_to` have been overloaded and can be confused for a source and a destination of a transfer. Such names, however, have been used to express ranges over an array (e.g., `GradualDeliveryCrowdsale.sol`, lines 76 and 77). Our recommendation is to rename them to `_startIndex` and `_endIndex`, respectively. Moreover, document that `_endIndex` is exclusive.
 
-* Fix grammar issues. Some examples: `they has` -> `they have`, `ethers` -> `ether`
+* The current design of token distribution (the file `GradualDeliveryCrowdsale.sol`, the method `_deliverTokensInRatio(...)`) follows the "push" approach which is prone to failures and can be costly in terms of gas for the contract owner. As per the best practices, we recommend [favouring "pull" over "push" for external calls](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
 
-* The `constructor` keyword should have been used instead of naming it after the
-contract. In fact, after doing so, running
-
-```
-npm run lint
-```
-
-does not report any issues (this is in contrast to the documentation
-in the code).
+* Fix grammar issues. Example: `they has` -> `they have`
 
 # Conclusion
 
