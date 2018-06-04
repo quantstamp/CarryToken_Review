@@ -77,7 +77,7 @@ Steps taken to run the full test suite:
 * Installed the `mythril` tool from Pypi: `pip3 install mythril`.
 * Ran the `mythril` tool: `myth -x <Flattened-Contract>.sol`.
 * Installed the `Oyente` tool from Docker Hub: `docker pull luongnguyen/oyente && docker run -i -t -v ${PWD}:/oyente/oyente/contracts luongnguyen/oyente`.
-* Ran the `Oyente` tool: `cd /oyente/oyente && python oyente.py -s contracts/<Contract>.sol`.
+* Ran the `Oyente` tool: `cd /oyente/oyente && python oyente.py -s contracts/<Flattened-Contract>.sol`.
 
 # Evaluation
 
