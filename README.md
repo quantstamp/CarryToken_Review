@@ -154,7 +154,7 @@ Oyente has also shown a warning of a possible integer underflow at the line `str
       }
   ```
   Executing `beneficiaries.push(_beneficiary);` may lead to cases where
-  `beneficiaries` are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
+  beneficiaries are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
 
   To illustrate how this could happen, consider the following execution flow:
 
