@@ -38,7 +38,7 @@ The following source code was reviewed during the audit.
 
 # Security Audit
 
-Quantstamp's objective was to evaluate the QuarkChain ERC20-based token and crowdsale contracts for security-related issues, code quality, and adherence to best-practices.
+Quantstamp's objective was to evaluate the Carry Protocol ERC20-based token and crowdsale contracts for security-related issues, code quality, and adherence to best-practices.
 
 Possible issues include (but are not limited to):
 
@@ -75,8 +75,8 @@ Steps taken to run the full test suite:
 * Ran the coverage tool: `./node_modules/.bin/solidity-coverage`.
 * To workaround limitations of the `Mythril` and `Oyente` tools, we flattened the source code using `truffle-flattener`.
 * Installed the `mythril` tool from Pypi: `pip3 install mythril`.
-* Ran the `mythril` tool: `myth -x <Contract>.sol`.
-* Ran the `Oyente` tool: `cd /oyente/oyente` followed by `python oyente.py -s contracts/<Contract>.sol`.
+* Ran the `mythril` tool: `myth -x <Flattened-Contract>.sol`.
+* Ran the `Oyente` tool: `cd /oyente/oyente` followed by `python oyente.py -s contracts/<Flattened-Contract>.sol`.
 * Installed the `Oyente` tool from Docker Hub: `docker pull luongnguyen/oyente && docker run -i -t -v ${PWD}:/oyente/oyente/contracts luongnguyen/oyente`.
 * Ran the `Oyente` tool: `cd /oyente/oyente && python oyente.py -s contracts/<Contract>.sol`.
 
@@ -84,7 +84,7 @@ Steps taken to run the full test suite:
 
 ## Code Coverage
 
-Code coverage within the repository is satisfactory: `CarryToken.sol`, `CarryTokenCrowdsale.sol`, and `CarryTokenPresale.sol` have the perfect coverage, yet `GradualDeliveryCrowdsale.sol` has untested parts:
+Code coverage within the repository is high: `CarryToken.sol`, `CarryTokenCrowdsale.sol`, and `CarryTokenPresale.sol` have 100% coverage; `GradualDeliveryCrowdsale.sol` has few untested parts:
 
 * Lines 79, 89, 90, 98, and 125: the `else` paths of `require()` statements.
 * Lines 92 and 93: the `if` path of the `if (to > beneficiaries.length)` statement.
@@ -107,6 +107,19 @@ All files                           97.73 |    76.92 |      100 |    97.96 |
 
 The contract makes extensive usage of external libraries (created by OpenZeppelin). This practice enables relatively minimal modifications to be made in order to execute a customized crowdsale. With continued widespread use throughout the community and regular audits, these libraries will ensure that low-hanging fruit often associated with typographical errors and simplistic oversights are removed. 
 
+### Allowance Double-Spend Exploit
+
+As it presently is constructed, the contract is vulnerable to the [allowance double-spend exploit](https://github.com/OpenZeppelin/openzeppelin-solidity/blob/a0c03ee61cdb77327f2435ba2ab1c539b1d34774/contracts/token/ERC20/StandardToken.sol#L44-L58), similarly to other ERC20 tokens. 
+
+The exploit (as described below) can be mitigated through implementing functions that increase/decrease the allowance relative to its current value, such as the [increaseApproval](https://github.com/MonolithDAO/token/blob/94b935828408d6816849797fab8f89dca9a21db3/src/Token.sol#L98) and [decreaseApproval](https://github.com/MonolithDAO/token/blob/94b935828408d6816849797fab8f89dca9a21db3/src/Token.sol#L106) functions in the MonolithDAO Token. As the Carry Protocol token contract inherits these functions from OpenZeppelin contracts, no further action is necessary. ERC20 tokens may be exploited as follows:
+
+1. Alice allows Bob to transfer `N` amount of Alice's tokens (`N>0`) by calling the `approve` method on `Token` smart contract (passing Bob's address and `N` as method arguments)
+2. After some time, Alice decides to change from `N` to `M` (`M>0`) the number of Alice's tokens Bob is allowed to transfer, so she calls the `approve` method again, this time passing Bob's address and `M` as method arguments
+3. Bob notices Alice's second transaction before it was mined and quickly sends another transaction that calls the  `transferFrom` method to transfer `N` Alice's tokens somewhere
+4. If Bob's transaction will be executed before Alice's transaction, then Bob will successfully transfer `N` Alice's tokens and will gain an ability to transfer another `M` tokens
+5. Before Alice notices any irregularities, Bob calls `transferFrom` method again, this time to transfer `M` Alice's tokens.
+
+
 ## Adherence to Specification 
 
 While minimal specification is proposed within the [README](https://github.com/carryprotocol/carry-token-crowdsale/blob/25b53a973864b6ef30d70caa14bd490935a16b55/README.md), multiple checks and constants are presented through the Truffle project to ensure intended actions are successfully performed. 
@@ -119,15 +132,88 @@ Mythril tool has not detected any vulnerabilities of kinds Integer underflow, Un
 
 Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`, however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
 
-Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. TODO: interpret this warning.
+Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. This proved not to be the case, as both flows reported by the tool are the same. This warning
+can be safely ignored.
 
-Oyente has shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`, however, we believe this is a bug of Oyente: the line does not contain any integer operations.
+Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`; however, we believe this is a bug of Oyente: the line does not contain any integer operations.
 
 # Recommendations
 
 ## Contracts Code
 
+`GradualDeliveryCrowdsale.sol`
+
+* ***Major issue in logic***. Currently, `_processPurchase` is defined as:
+  ```
+      function _processPurchase(
+          address _beneficiary,
+          uint256 _tokenAmount
+      ) internal {
+          beneficiaries.push(_beneficiary);
+          balances[_beneficiary] = balances[_beneficiary].add(_tokenAmount);
+      }
+  ```
+  Executing `beneficiaries.push(_beneficiary);` will may lead to cases where
+  `beneficiaries` are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
+
+  To illustrate how this could happen, consider the following execution flow:
+
+  1. `Bob` buys `100` CRE tokens. Thus, `Bob` is added as a beneficiary in the `beneficiaries` array at position `k' = beneficiaries.length`. His balance is now `100` CRE.
+  2. `Bob` buys an extra `200` CRE tokens. Again, `Bob` is added as a beneficiary in the
+  `beneficiaries` array at a position `k'' = beneficiaries.length` and `k'' > k'`. His balance is now `300` CRE.
+  3. The contract `Owner` now wishes to deliver `1/2` of the tokens. As such, `Onwer`
+  calls `deliverTokensInRatio(1, 2)`. The expectation here is that `Bob` should receive `150` CRE.
+  4. In turn,  `deliverTokensInRatio` calls `_deliverTokensInRatio(1, 2, 0, beneficiaries.length`). 
+  5. The execution of `_deliverTokensInRatio` iterates over the `beneficiaries` array. Delivering tokens to `Bob` leads to:
+      1. When `i = k'`, `Bob` receives `1/2` of his `300` balance, i.e., `150` CRE. His remaining balance is now `300 - 150 = 150`. 
+      2. When `i = k''`, the contract will again deliver tokens to `Bob`. Specifically, `Bob` receives 1/2 of his 150 balance, i.e., 75 CRE. His remaining balance is `300 - 225 = 75`.
+As shown from the flow, `Bob` receives `225` CRE, instead of the expected `150`.
+
+One possible way to address this flaw is to assure that beneficiaries are only
+pushed once:
+
+  ```
+      function _processPurchase(
+          address _beneficiary,
+          uint256 _tokenAmount
+      ) internal {
+          if (_tokenAmount > 0 && balances[_beneficiary] == 0) {
+            beneficiaries.push(_beneficiary);
+          }
+          
+          balances[_beneficiary] = balances[_beneficiary].add(_tokenAmount);
+      }
+  ```
+
+Adding the if statement as shown guards against the cases when a `_beneficiary` has already contributed; thus, it enforces uniqueness of items in the `_beneficiaries` array.
+
+## General Remarks
+
+* Document function parameters in all contracts.
+
+* Ensure function names in comments are consistent with function names in the code. Examples where this needs to be fixed: 
+  * `receiverRefund` -> `receiveRefund` (line 148, `GradualDeliveryCrowdsale.sol`)
+  * `deliverTokenRatio` -> `deliverTokensInRatio` (line 27, `GradualDeliveryCrowdsale.sol`)
+
+* Variable names `_from` and `_to` have been overloaded. Typically they mean a source and a destination when transferring ether. Such names, however, have been used to express ranges over an array (e.g., `GradualDeliveryCrowdsale.sol`, lines 76 and 77). Our recommendation is to rename them to `_startIndex` and `_endIndex`, respectively. Moreover, document that `_endIndex` is exclusive.
+
+* Fix grammar issues. Some examples: `they has` -> `they have`, `ethers` -> `ether`
+
+* The `constructor` keyword should have been used instead of naming it after the
+contract. In fact, after doing so, running
+
+```
+npm run lint
+```
+
+does not report any issues. Thus, we advice making such a change.
+
 # Conclusion
+
+We found one major issue in the logic of gradually distributing tokens and the 
+ERC20 allowance double spend exploit (inherent to any ERC20 token contract).
+
+Quantstamp had no additional findings of potential vulnerabilities at the time of analysis. 
 
 # Appendix
 
