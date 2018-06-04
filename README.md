@@ -118,7 +118,7 @@ The exploit (as described below) can be mitigated through implementing functions
 4. If Bob's transaction will be executed before Alice's transaction, then Bob will successfully transfer `N` Alice's tokens and will gain an ability to transfer another `M` tokens
 5. Before Alice notices any irregularities, Bob calls `transferFrom` method again, this time to transfer `M` Alice's tokens.
 
-Pending community agreement on an ERC standard that would protect against this exploit, we recommend that developers of applications dependent on `approve` / `transferFrom` should keep in mind that they have to set allowance to 0 first and verify if it was used before setting the new value. Teams who decide to wait for such a standard should make these recommendations to app developers who work with their token contract. (edited)
+Pending community agreement on an ERC standard that would protect against this exploit, we recommend that developers of applications dependent on `approve` / `transferFrom` should keep in mind that they have to set allowance to 0 first and verify if it was used before setting the new value. Teams who decide to wait for such a standard should make these recommendations to app developers who work with their token contract.
 
 ## Adherence to Specification 
 
