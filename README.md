@@ -195,11 +195,11 @@ Adding the if statement as shown guards against the cases when a `_beneficiary` 
   * `receiverRefund` -> `receiveRefund` (line 148, `GradualDeliveryCrowdsale.sol`)
   * `deliverTokenRatio` -> `deliverTokensInRatio` (line 27, `GradualDeliveryCrowdsale.sol`)
 
-* Variable names `_from` and `_to` have been overloaded. Typically they mean a source and a destination when transferring ether. Such names, however, have been used to express ranges over an array (e.g., `GradualDeliveryCrowdsale.sol`, lines 76 and 77). Our recommendation is to rename them to `_startIndex` and `_endIndex`, respectively. Moreover, document that `_endIndex` is exclusive.
-
-* Fix grammar issues. Some examples: `they has` -> `they have`, `ethers` -> `ether`
+* Variable names `_from` and `_to` have been overloaded and can be confused for a source and a destination of a transfer. Such names, however, have been used to express ranges over an array (e.g., `GradualDeliveryCrowdsale.sol`, lines 76 and 77). Our recommendation is to rename them to `_startIndex` and `_endIndex`, respectively. Moreover, document that `_endIndex` is exclusive.
 
 * The current design of token distribution (the file `GradualDeliveryCrowdsale.sol`, the method `_deliverTokensInRatio(...)`) follows the "push" approach which is prone to failures and can be costly in terms of gas for the contract owner. As per the best practices, we recommend [favouring "pull" over "push" for external calls](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
+
+* Fix grammar issues. Example: `they has` -> `they have`
 
 # Conclusion
 
