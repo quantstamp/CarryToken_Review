@@ -53,7 +53,7 @@ Possible issues include (but are not limited to):
 
 # Test coverage
 
-We evaluated the test coverage using truffle and solidity-coverage. The below notes outline the setup and steps that were performed.
+We evaluated the test coverage using truffle and solidity-coverage. The notes below outline the setup and steps that were performed.
 
 ## Setup
 
@@ -76,7 +76,6 @@ Steps taken to run the full test suite:
 * To workaround limitations of the `Mythril` and `Oyente` tools, we flattened the source code using `truffle-flattener`.
 * Installed the `mythril` tool from Pypi: `pip3 install mythril`.
 * Ran the `mythril` tool: `myth -x <Flattened-Contract>.sol`.
-* Ran the `Oyente` tool: `cd /oyente/oyente` followed by `python oyente.py -s contracts/<Flattened-Contract>.sol`.
 * Installed the `Oyente` tool from Docker Hub: `docker pull luongnguyen/oyente && docker run -i -t -v ${PWD}:/oyente/oyente/contracts luongnguyen/oyente`.
 * Ran the `Oyente` tool: `cd /oyente/oyente && python oyente.py -s contracts/<Contract>.sol`.
 
@@ -130,9 +129,9 @@ Oyente tool has not detected any vulnerabilities of kinds Parity Multisig Bug 2,
 
 Mythril tool has not detected any vulnerabilities of kinds Integer underflow, Unprotected functions, Missing check on `call` return value, Re-entrancy, Multiple sends in a single transaction, External call to untrusted contract, `delegatecall` or `callcode` to untrusted contract, Timestamp dependence, Use of `tx.origin`, Predictable RNG, Transaction order dependence, Use `require()` instead of `assert()`, Use of deprecated functions, Detect tautologies.
 
-Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`, however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
+Both Mythril and Oyente have shown an `Integer Overflow` warning at the method `SafeMath.add`; however, we believe this is a false-positive. The method is designed to handle integer overflows, and the statement `c = a + b` is followed by the assertion `assert(c >= a);` which causes the method to throw in case of an overflow. The assertion was also flagged by Mythril as `reachable exception`, which is expected and does not raise any concerns.
 
-Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. This proved not to be the case, as both flows reported by the tool are the same. This warning
+Oyente has shown a warning of a possible transaction-ordering dependency at `_wallet.transfer(depositedWeiAmount)` of the `_transferRefund` method of the contract `GradualDeliveryCrowdsale`. This proved to be a false-positive, as both flows reported by the tool are the same. This warning
 can be safely ignored.
 
 Oyente has also shown a warning of a possible integer underflow at the line `string public symbol = "CRE"`; however, we believe this is a bug of Oyente: the line does not contain any integer operations.
@@ -153,7 +152,7 @@ Oyente has also shown a warning of a possible integer underflow at the line `str
           balances[_beneficiary] = balances[_beneficiary].add(_tokenAmount);
       }
   ```
-  Executing `beneficiaries.push(_beneficiary);` will may lead to cases where
+  Executing `beneficiaries.push(_beneficiary);` may lead to cases where
   `beneficiaries` are added multiple times, compromising the gradual delivery of tokens, as given by functions `deliverTokensInRatio` and `deliverTokensInRatioFromTo`. 
 
   To illustrate how this could happen, consider the following execution flow:
@@ -163,7 +162,7 @@ Oyente has also shown a warning of a possible integer underflow at the line `str
   `beneficiaries` array at a position `k'' = beneficiaries.length` and `k'' > k'`. His balance is now `300` CRE.
   3. The contract `Owner` now wishes to deliver `1/2` of the tokens. As such, `Onwer`
   calls `deliverTokensInRatio(1, 2)`. The expectation here is that `Bob` should receive `150` CRE.
-  4. In turn,  `deliverTokensInRatio` calls `_deliverTokensInRatio(1, 2, 0, beneficiaries.length`). 
+  4. Function  `deliverTokensInRatio` executes, leading to a call to `_deliverTokensInRatio(1, 2, 0, beneficiaries.length`). 
   5. The execution of `_deliverTokensInRatio` iterates over the `beneficiaries` array. Delivering tokens to `Bob` leads to:
       1. When `i = k'`, `Bob` receives `1/2` of his `300` balance, i.e., `150` CRE. His remaining balance is now `300 - 150 = 150`. 
       2. When `i = k''`, the contract will again deliver tokens to `Bob`. Specifically, `Bob` receives 1/2 of his 150 balance, i.e., 75 CRE. His remaining balance is `300 - 225 = 75`.
@@ -206,12 +205,14 @@ contract. In fact, after doing so, running
 npm run lint
 ```
 
-does not report any issues. Thus, we advice making such a change.
+does not report any issues (this is in contrast to the documentation
+in the code).
 
 # Conclusion
 
-We found one major issue in the logic of gradually distributing tokens and the 
-ERC20 allowance double spend exploit (inherent to any ERC20 token contract).
+We found one major issue in the logic of gradually distributing tokens.
+Also, the contract is vulnerable to the
+ERC20 allowance double spend exploit. The latter, however, is inherent to any ERC20 token contract.
 
 Quantstamp had no additional findings of potential vulnerabilities at the time of analysis. 
 
